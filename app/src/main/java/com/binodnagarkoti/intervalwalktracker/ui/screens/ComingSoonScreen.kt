@@ -94,7 +94,7 @@ fun ComingSoonScreen(
                     Icon(Icons.Default.Construction, contentDescription = null, tint = AppPrimary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "Estimated release: Q2 2024",
+                        text = "Estimated release: Q2 2027",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                     )
                 }
