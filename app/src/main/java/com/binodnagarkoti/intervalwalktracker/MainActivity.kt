@@ -2,6 +2,7 @@ package com.binodnagarkoti.intervalwalktracker
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
@@ -12,20 +13,20 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.binodnagarkoti.intervalwalktracker.service.WorkoutService
 import com.binodnagarkoti.intervalwalktracker.ui.navigation.AppNavigation
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
-import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModelFactory
 import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModel
-import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModelFactory
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var isBound = false
@@ -59,7 +60,7 @@ class MainActivity : ComponentActivity() {
             ).show()
         }
 
-        if (!notificationsGranted) {
+        if (!notificationsGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Toast.makeText(
                 this,
                 "Notifications are recommended to track workouts in the background.",
@@ -73,16 +74,6 @@ class MainActivity : ComponentActivity() {
 
         checkPermissions()
 
-        val app = application as IntervalWalkTrackerApp
-        
-        val dashboardViewModel: DashboardViewModel by viewModels {
-            DashboardViewModelFactory(app.repository)
-        }
-        
-        val workoutViewModel: WorkoutViewModel by viewModels {
-            WorkoutViewModelFactory(applicationContext, app.repository, app.timerManager, app.stepSensorManager)
-        }
-
         setContent {
             MaterialTheme {
                 Surface(
@@ -90,6 +81,9 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
+                    val dashboardViewModel: DashboardViewModel = hiltViewModel()
+                    val workoutViewModel: WorkoutViewModel = hiltViewModel()
+
                     AppNavigation(
                         navController = navController,
                         dashboardViewModel = dashboardViewModel,

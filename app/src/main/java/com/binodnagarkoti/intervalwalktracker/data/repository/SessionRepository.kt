@@ -5,8 +5,13 @@ import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.data.database.WalkSessionDao
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SessionRepository(private val walkSessionDao: WalkSessionDao) {
+@Singleton
+class SessionRepository @Inject constructor(
+    private val walkSessionDao: WalkSessionDao
+) {
 
     val allSessions: Flow<List<WalkSession>> = walkSessionDao.getAllSessions()
 

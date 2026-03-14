@@ -1,18 +1,16 @@
-# Interval Walk Tracker (IWT) -- Product Requirements Document v2
+# Interval Walk Tracker (IWT) -- Product Requirements Document v3
 
 ## 1. Product Summary
 
-Interval Walk Tracker is an Android fitness application that implements
-the **Japanese Interval Walking Training (IWT)** method. The method
-alternates **3 minutes of fast walking and 3 minutes of slow walking**
-repeatedly for several sets.
+Interval Walk Tracker is a production-grade Android fitness application that implements the **Japanese Interval Walking Training (IWT)** method. The method alternates **3 minutes of fast walking and 3 minutes of slow walking** repeatedly for several sets.
 
-The application helps users: - Follow interval walking sessions - Track
-steps using device sensors - Monitor workout performance - View
-historical progress
+The application helps users:
+- Follow guided interval walking sessions.
+- Track steps accurately using hardware sensors.
+- Monitor real-time performance with audio coaching.
+- View historical progress and motivational statistics.
 
-The application is designed to be **offline-first**, lightweight, and
-reliable using **SQLite in‑memory storage during runtime**.
+The application is built with a **modern, offline-first architecture** using Jetpack Compose, Hilt, and Room.
 
 ------------------------------------------------------------------------
 
@@ -21,446 +19,120 @@ reliable using **SQLite in‑memory storage during runtime**.
 ## Interval Walking Training (IWT)
 
 Cycle structure:
-
-FAST WALK -- 3 minutes\
-SLOW WALK -- 3 minutes
-
-1 Cycle = 6 minutes
+- FAST WALK -- 3 minutes
+- SLOW WALK -- 3 minutes
+- 1 Cycle (Set) = 6 minutes
 
 Typical session examples:
-
-  Session Length   Sets
-  ---------------- --------
-  18 minutes       3 sets
-  24 minutes       4 sets
-  30 minutes       5 sets
-
-Each set consists of:
-
-FAST → SLOW
+- 18 minutes: 3 sets
+- 24 minutes: 4 sets
+- 30 minutes: 5 sets
 
 ------------------------------------------------------------------------
 
-# 3. Target Users
+# 3. Key Product Goals
 
-Primary users:
-
-• Fitness beginners\
-• Office workers\
-• People without fitness watches\
-• People seeking short efficient workouts
-
-------------------------------------------------------------------------
-
-# 4. Key Product Goals
-
-1.  Provide guided interval walking.
-2.  Accurately track steps using device sensors.
-3.  Track workouts and historical performance.
-4.  Provide motivational statistics.
-5.  Operate completely offline.
+1.  **Guided Workout:** Provide visual and audio cues for interval transitions.
+2.  **Precision Tracking:** Use hardware sensors (`TYPE_STEP_COUNTER`) for battery-efficient step counting.
+3.  **Background Reliability:** Maintain workout state and timers using a Foreground Service.
+4.  **Data Integrity:** Centralize data access through the Repository pattern with Room persistence.
+5.  **Scalable Architecture:** Implement DI (Hilt) and MVVM for maintainability.
 
 ------------------------------------------------------------------------
 
-# 5. Core Features
+# 4. Core Features
 
-## 5.1 Dashboard
+## 4.1 Dashboard
+- **Metrics:** Today's Steps, Completed Sets, Remaining Sets (Daily), Total Duration, Fast/Slow split.
+- **Filters:** Daily, Monthly, Yearly summaries using `StateFlow` and logic-aware filtering.
+- **Controls:** Target set slider and "Start Workout" entry point.
 
-Displays user's activity summary.
+## 4.2 Workout Session Screen
+- **Real-time UI:** Current Set indicator, Countdown Timer, and Mode Indicator (Fast/Slow).
+- **Controls:** Pause/Resume and Stop functionality.
+- **Background Support:** Active notification allows workout tracking outside the app.
 
-Metrics:
+## 4.3 Audio Coaching
+- **Technology:** Android Text-to-Speech (TTS).
+- **Triggers:** Workout start, phase transitions ("Switch to slow walking"), and set completion.
 
-• Today's Steps\
-• Sets Completed\
-• Remaining Sets\
-• Total Workout Minutes\
-• Fast Walking Minutes\
-• Slow Walking Minutes
-
-Filters:
-
-• Daily\
-• Monthly\
-• Yearly
-
-UI Components:
-
--   Progress Cards
--   Activity Summary
--   Start Workout Button
--   History Button
+## 4.4 History Screen
+- **Session List:** Detailed breakdown of past workouts including steps, duration, and sets completed.
+- **Navigation:** Deep-link integration from Dashboard.
 
 ------------------------------------------------------------------------
 
-# 5.2 Workout Session Screen
+# 5. Technical Architecture
 
-This screen runs the active walking session.
+## 5.1 Pattern: MVVM + Repository + DI
+- **Model:** Room Entities (`WalkSession`, `StepLog`).
+- **View:** Declarative Jetpack Compose screens.
+- **ViewModel:** Hilt-injected ViewModels handling UI state and business logic.
+- **Repository:** `SessionRepository` as the single source of truth for all data operations.
+- **Dependency Injection:** Hilt for managing the lifecycle of singletons (Database, Managers, Repository).
 
-Display Elements:
-
-Top Area - Current Set - Total Sets
-
-Middle Area - Mode Indicator (FAST / SLOW) - Countdown Timer
-
-Bottom Area - Step Counter - Pause Button - Stop Button
-
-Example UI:
-
-Set 2 / 5
-
-FAST WALK
-
-02:31
-
-Steps: 2104
+## 5.2 Layers
+- **DI Layer (`di/`):** Hilt modules for providing Database, Repository, and System Managers.
+- **Data Layer (`data/`):** Room Database, DAOs, and the abstraction Repository.
+- **Service Layer (`service/`):** `WorkoutService` (Foreground) manages the workout lifecycle and audio cues.
+- **Logic Layer:** 
+    - `timer/`: `IntervalTimerManager` handles core timing logic.
+    - `sensors/`: `StepSensorManager` handles hardware sensor registration.
+    - `audio/`: `AudioCoachManager` manages TTS lifecycle.
 
 ------------------------------------------------------------------------
 
-# 5.3 Session Summary Screen
+# 6. Data Storage Strategy
 
-Shown after workout completion.
-
-Metrics:
-
-• Total Steps\
-• Total Duration\
-• Sets Completed\
-• Fast Walking Time\
-• Slow Walking Time
-
-Actions:
-
--   Save Session
--   Return to Dashboard
+- **Database:** Room (SQLite).
+- **Configuration:** In-memory configuration for runtime session hydration (as per PRD requirements), with the option for persistent storage.
+- **Schema:**
+    - `WalkSession`: id, date, steps, totalSets, completedSets, durationMinutes, fastMinutes, slowMinutes.
+    - `StepLog`: id, timestamp, steps.
 
 ------------------------------------------------------------------------
 
-# 5.4 History Screen
+# 7. Step Tracking & Sensors
 
-Displays past sessions.
-
-List View:
-
-Date\
-Duration\
-Steps\
-Sets Completed
-
-Filter:
-
-Daily\
-Monthly\
-Yearly
+- **Sensor Type:** `TYPE_STEP_COUNTER`.
+- **Optimization:** Uses `SENSOR_DELAY_NORMAL` to minimize battery consumption while maintaining accuracy for walking.
+- **Logic:** `sessionSteps = currentSensorValue - startSensorValue`.
 
 ------------------------------------------------------------------------
 
-# 6. Business Logic
+# 8. Project Structure
 
-## 6.1 Session State Machine
-
-States:
-
-IDLE\
-FAST\
-SLOW\
-PAUSED\
-COMPLETED
-
-State transitions:
-
-IDLE → FAST\
-FAST → SLOW\
-SLOW → FAST\
-FAST → COMPLETED\
-SLOW → COMPLETED
-
-------------------------------------------------------------------------
-
-## 6.2 Timer Logic
-
-Timer durations:
-
-FAST = 180 seconds\
-SLOW = 180 seconds
-
-Pseudo logic:
-
-    startWorkout()
-
-    mode = FAST
-    set = 1
-    time = 180
-
-    while set <= totalSets
-
-        runTimer()
-
-        if mode == FAST
-            mode = SLOW
-
-        else
-            mode = FAST
-            set++
-
-    endSession()
+```
+com.binodnagarkoti.intervalwalktracker
+├── audio/          # Text-to-Speech management
+├── data/           # Database and Repository
+│   ├── database/
+│   └── repository/
+├── di/             # Hilt Dependency Injection modules
+├── sensors/        # Hardware sensor management
+├── service/        # Foreground Service implementation
+├── timer/          # Workout timer business logic
+├── ui/             # Jetpack Compose UI
+│   ├── components/ # Reusable UI widgets
+│   ├── navigation/ # Compose Navigation setup
+│   └── screens/    # Feature-specific screens
+└── viewmodel/      # Hilt ViewModels
+```
 
 ------------------------------------------------------------------------
 
-# 7. Step Tracking
+# 9. Performance & Security
 
-Uses Android **Step Counter Sensor**.
-
-Sensor Type:
-
-TYPE_STEP_COUNTER
-
-Steps are calculated relative to session start.
-
-Logic:
-
-    sessionSteps = currentSensorSteps - sessionStartSteps
-
-Edge cases:
-
-• Sensor unavailable\
-• Device reboot resets sensor\
-• Background interruptions
+- **Lifecycle Awareness:** Uses `collectAsStateWithLifecycle` to prevent memory leaks and unnecessary processing.
+- **Permissions:** Runtime handling for `ACTIVITY_RECOGNITION` and `POST_NOTIFICATIONS`.
+- **Efficiency:** Foreground Service ensures timing accuracy even when the CPU is in deep sleep.
 
 ------------------------------------------------------------------------
 
-# 8. Alerts & Notifications
+# 10. Success Metrics
 
-Switching alerts:
-
-FAST → SLOW
-
-Message:
-
-"Switch to Slow Walk"
-
-SLOW → FAST
-
-Message:
-
-"Switch to Fast Walk"
-
-Alert types:
-
-• vibration\
-• sound\
-• visual indicator
+- **Technical:** Zero `ClassCastException` on startup, <1% crash rate, and stable background execution on Android 14+.
+- **User:** High session completion rate due to clear audio guidance and accurate tracking.
 
 ------------------------------------------------------------------------
-
-# 9. Data Storage Strategy
-
-The app uses:
-
-SQLite **in‑memory database** for runtime session hydration.
-
-Advantages:
-
-• fast read/write\
-• minimal disk usage\
-• simplified architecture
-
-------------------------------------------------------------------------
-
-# 10. Database Schema
-
-## WalkSession
-
-  Field              Type
-  ------------------ -----------
-  id                 integer
-  date               timestamp
-  duration_minutes   integer
-  steps              integer
-  total_sets         integer
-  completed_sets     integer
-  fast_minutes       integer
-  slow_minutes       integer
-
-------------------------------------------------------------------------
-
-## StepLog
-
-  Field       Type
-  ----------- -----------
-  id          integer
-  timestamp   timestamp
-  steps       integer
-
-------------------------------------------------------------------------
-
-# 11. App Architecture
-
-Recommended architecture:
-
-MVVM
-
-Layers:
-
-UI Layer -- Jetpack Compose\
-ViewModel Layer\
-Repository Layer\
-Sensor Manager\
-Timer Manager\
-SQLite Storage
-
-------------------------------------------------------------------------
-
-# 12. Project Structure
-
-Recommended Android project layout:
-
-    intervalwalktracker
-    │
-    ├── app
-    │
-    ├── data
-    │   ├── database
-    │   │   ├── AppDatabase.kt
-    │   │   ├── WalkSessionDao.kt
-    │   │   └── Entities.kt
-    │   │
-    │   ├── repository
-    │   │   └── SessionRepository.kt
-    │
-    ├── sensors
-    │   └── StepSensorManager.kt
-    │
-    ├── timer
-    │   └── IntervalTimerManager.kt
-    │
-    ├── viewmodel
-    │   ├── WorkoutViewModel.kt
-    │   └── DashboardViewModel.kt
-    │
-    ├── ui
-    │   ├── screens
-    │   │   ├── DashboardScreen.kt
-    │   │   ├── WorkoutScreen.kt
-    │   │   ├── SummaryScreen.kt
-    │   │   └── HistoryScreen.kt
-    │   │
-    │   ├── components
-    │   │   ├── TimerDisplay.kt
-    │   │   ├── ModeIndicator.kt
-    │   │   ├── StepCounter.kt
-    │   │   └── ProgressCard.kt
-    │
-    └── navigation
-        └── AppNavigation.kt
-
-------------------------------------------------------------------------
-
-# 13. Jetpack Compose UI Structure
-
-DashboardScreen
-
-    Column
-       Header
-       ProgressCards
-       ActivitySummary
-       StartWorkoutButton
-
-WorkoutScreen
-
-    Column
-       SetIndicator
-       ModeIndicator
-       TimerDisplay
-       StepCounter
-       Controls
-
-------------------------------------------------------------------------
-
-# 14. Navigation Flow
-
-App Flow:
-
-Launch App
-
-→ Dashboard
-
-User presses Start
-
-→ Workout Screen
-
-Workout Finished
-
-→ Summary Screen
-
-Return
-
-→ Dashboard
-
-------------------------------------------------------------------------
-
-# 15. Performance Requirements
-
-The application must:
-
-• operate offline\
-• maintain timer accuracy\
-• maintain step counter accuracy\
-• minimize battery usage
-
-------------------------------------------------------------------------
-
-# 16. Error Handling
-
-Case 1 -- Sensor unavailable
-
-Display:
-
-"Step sensor not supported on this device"
-
-Case 2 -- Timer interruption
-
-Resume timer automatically.
-
-------------------------------------------------------------------------
-
-# 17. Future Features
-
-Planned improvements:
-
-• GPS route tracking\
-• calorie estimation\
-• wearable integration\
-• Google Health Connect sync\
-• reminders\
-• social leaderboard
-
-------------------------------------------------------------------------
-
-# 18. Development Phases
-
-Phase 1 -- Project setup\
-Phase 2 -- Timer engine\
-Phase 3 -- Step sensor integration\
-Phase 4 -- Dashboard statistics\
-Phase 5 -- Session persistence\
-Phase 6 -- UI polishing
-
-------------------------------------------------------------------------
-
-# 19. Success Metrics
-
-User metrics:
-
-• sessions per week\
-• steps per session\
-• session completion rate
-
-Technical metrics:
-
-• crash rate\
-• sensor reliability\
-• timer precision
-
-------------------------------------------------------------------------
-
-# End of PRD v2
+# End of PRD v3

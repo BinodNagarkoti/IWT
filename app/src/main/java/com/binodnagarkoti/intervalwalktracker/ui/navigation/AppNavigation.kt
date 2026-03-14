@@ -4,10 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.binodnagarkoti.intervalwalktracker.ui.screens.DashboardScreen
-import com.binodnagarkoti.intervalwalktracker.ui.screens.HistoryScreen
-import com.binodnagarkoti.intervalwalktracker.ui.screens.SummaryScreen
-import com.binodnagarkoti.intervalwalktracker.ui.screens.WorkoutScreen
+import com.binodnagarkoti.intervalwalktracker.ui.screens.*
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
 import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModel
 
@@ -18,6 +15,9 @@ sealed class Screen(val route: String) {
     }
     object Summary : Screen("summary")
     object History : Screen("history")
+    object ComingSoon : Screen("coming_soon/{featureName}") {
+        fun createRoute(featureName: String) = "coming_soon/$featureName"
+    }
 }
 
 @Composable
@@ -35,6 +35,9 @@ fun AppNavigation(
                 },
                 onViewHistory = {
                     navController.navigate(Screen.History.route)
+                },
+                onNavigateToFeature = { feature ->
+                    navController.navigate(Screen.ComingSoon.createRoute(feature))
                 }
             )
         }
@@ -43,6 +46,9 @@ fun AppNavigation(
             WorkoutScreen(
                 viewModel = workoutViewModel,
                 sets = sets,
+                onBack = {
+                    navController.popBackStack()
+                },
                 onFinish = {
                     navController.navigate(Screen.Summary.route) {
                         popUpTo(Screen.Dashboard.route)
@@ -63,6 +69,15 @@ fun AppNavigation(
         composable(Screen.History.route) {
             HistoryScreen(
                 viewModel = dashboardViewModel,
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(Screen.ComingSoon.route) { backStackEntry ->
+            val featureName = backStackEntry.arguments?.getString("featureName") ?: "Feature"
+            ComingSoonScreen(
+                featureName = featureName,
                 onBack = {
                     navController.popBackStack()
                 }

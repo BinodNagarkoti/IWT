@@ -4,20 +4,23 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.binodnagarkoti.intervalwalktracker.data.repository.SessionRepository
 import com.binodnagarkoti.intervalwalktracker.sensors.StepSensorManager
 import com.binodnagarkoti.intervalwalktracker.service.WorkoutService
 import com.binodnagarkoti.intervalwalktracker.timer.IntervalTimerManager
 import com.binodnagarkoti.intervalwalktracker.timer.TimerState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class WorkoutViewModel(
-    private val context: Context,
+@HiltViewModel
+class WorkoutViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: SessionRepository,
     private val timerManager: IntervalTimerManager,
     private val stepSensorManager: StepSensorManager
@@ -110,20 +113,5 @@ class WorkoutViewModel(
             action = "STOP"
         }
         context.startService(intent)
-    }
-}
-
-class WorkoutViewModelFactory(
-    private val context: Context,
-    private val repository: SessionRepository,
-    private val timerManager: IntervalTimerManager,
-    private val stepSensorManager: StepSensorManager
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(WorkoutViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return WorkoutViewModel(context, repository, timerManager, stepSensorManager) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

@@ -1,12 +1,13 @@
 package com.binodnagarkoti.intervalwalktracker.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.data.repository.SessionRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import java.util.Calendar
+import javax.inject.Inject
 
 enum class TimeFilter {
     DAILY, MONTHLY, YEARLY
@@ -21,7 +22,10 @@ data class DailyStats(
     val remainingSets: Int = 0
 )
 
-class DashboardViewModel(private val repository: SessionRepository) : ViewModel() {
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val repository: SessionRepository
+) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(TimeFilter.DAILY)
     val selectedFilter: StateFlow<TimeFilter> = _selectedFilter.asStateFlow()
@@ -83,15 +87,5 @@ class DashboardViewModel(private val repository: SessionRepository) : ViewModel(
             TimeFilter.YEARLY -> calendar.set(Calendar.DAY_OF_YEAR, 1)
         }
         return calendar.timeInMillis
-    }
-}
-
-class DashboardViewModelFactory(private val repository: SessionRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(DashboardViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return DashboardViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

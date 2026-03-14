@@ -8,7 +8,6 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.*
 import androidx.core.app.NotificationCompat
-import com.binodnagarkoti.intervalwalktracker.IntervalWalkTrackerApp
 import com.binodnagarkoti.intervalwalktracker.MainActivity
 import com.binodnagarkoti.intervalwalktracker.audio.AudioCoachManager
 import com.binodnagarkoti.intervalwalktracker.data.database.StepLog
@@ -17,22 +16,25 @@ import com.binodnagarkoti.intervalwalktracker.data.repository.SessionRepository
 import com.binodnagarkoti.intervalwalktracker.sensors.StepSensorManager
 import com.binodnagarkoti.intervalwalktracker.timer.IntervalTimerManager
 import com.binodnagarkoti.intervalwalktracker.timer.TimerState
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class WorkoutService : Service() {
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    private lateinit var timerManager: IntervalTimerManager
-    private lateinit var stepSensorManager: StepSensorManager
-    private lateinit var audioCoachManager: AudioCoachManager
-    private lateinit var repository: SessionRepository
+    @Inject lateinit var timerManager: IntervalTimerManager
+    @Inject lateinit var stepSensorManager: StepSensorManager
+    @Inject lateinit var audioCoachManager: AudioCoachManager
+    @Inject lateinit var repository: SessionRepository
     private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
     private val CHANNEL_ID = "workout_channel"
@@ -45,13 +47,7 @@ class WorkoutService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val app = application as IntervalWalkTrackerApp
-        timerManager = app.timerManager
-        stepSensorManager = app.stepSensorManager
-        repository = app.repository
-        audioCoachManager = AudioCoachManager(this)
         createNotificationChannel()
-        
         observeTimerState()
     }
 
