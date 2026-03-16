@@ -11,7 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,12 +30,37 @@ import java.util.*
 @Composable
 fun HistoryDetailScreen(
     session: WalkSession,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onDelete: (WalkSession) -> Unit
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val sdfDate = SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault())
     val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
     val dateString = sdfDate.format(Date(session.date))
     val timeString = sdfTime.format(Date(session.date))
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Session?") },
+            text = { Text("Are you sure you want to delete this workout session? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(session)
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -73,7 +98,7 @@ fun HistoryDetailScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Main Stats Card (like in Summary)
+            // Main Stats Card
             Row(modifier = Modifier.fillMaxWidth()) {
                 SummaryStatCard(
                     title = "Total Steps",
@@ -163,9 +188,9 @@ fun HistoryDetailScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Delete Action (Placeholder for now)
+            // Delete Action
             OutlinedButton(
-                onClick = { /* TODO: Implement delete */ },
+                onClick = { showDeleteDialog = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),

@@ -6,6 +6,7 @@ import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.data.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -72,6 +73,12 @@ class DashboardViewModel @Inject constructor(
 
     fun setTargetSets(sets: Int) {
         _targetSets.value = sets
+    }
+
+    fun deleteSession(session: WalkSession) {
+        viewModelScope.launch {
+            repository.deleteSession(session)
+        }
     }
 
     private fun getStartTimeForFilter(filter: TimeFilter): Long {

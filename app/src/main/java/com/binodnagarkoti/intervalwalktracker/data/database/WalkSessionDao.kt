@@ -1,6 +1,7 @@
 package com.binodnagarkoti.intervalwalktracker.data.database
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,9 @@ interface WalkSessionDao {
 
     @Insert
     suspend fun insertSession(session: WalkSession)
+
+    @Delete
+    suspend fun deleteSession(session: WalkSession)
 
     @Query("SELECT SUM(steps) FROM walk_sessions WHERE date >= :startOfDay")
     fun getTodaySteps(startOfDay: Long): Flow<Int?>

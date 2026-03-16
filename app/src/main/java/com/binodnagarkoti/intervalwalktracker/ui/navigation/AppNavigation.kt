@@ -98,7 +98,11 @@ fun AppNavigation(
             if (session != null) {
                 HistoryDetailScreen(
                     session = session,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onDelete = { sessionToDelete ->
+                        dashboardViewModel.deleteSession(sessionToDelete)
+                        navController.popBackStack()
+                    }
                 )
             }
         }

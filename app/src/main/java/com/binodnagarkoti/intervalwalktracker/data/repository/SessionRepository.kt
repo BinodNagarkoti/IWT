@@ -33,6 +33,10 @@ class SessionRepository @Inject constructor(
         walkSessionDao.insertSession(session)
     }
 
+    suspend fun deleteSession(session: WalkSession) {
+        walkSessionDao.deleteSession(session)
+    }
+
     suspend fun insertStepLog(log: StepLog) {
         walkSessionDao.insertStepLog(log)
     }
