@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -39,187 +39,122 @@ fun DashboardScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val targetSets by viewModel.targetSets.collectAsState()
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Text(
-                        "Interval Walk Tracker",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = { /* Menu */ }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { /* Account */ },
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .border(2.dp, AppPrimary.copy(alpha = 0.2f), CircleShape)
-                            .padding(2.dp)
-                    ) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = "Account", tint = AppPrimary)
-                    }
-                }
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = { },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home", fontSize = 10.sp) }
+                Text(
+                    text = "Interval Walk Tracker",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black)
                 )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onViewHistory,
-                    icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                    label = { Text("History", fontSize = 10.sp) }
+                IconButton(onClick = { onNavigateToFeature("Settings") }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Today's Activity",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { onNavigateToFeature("Training Plans") },
-                    icon = { Icon(Icons.AutoMirrored.Filled.EventNote, contentDescription = "Plans") },
-                    label = { Text("Plans", fontSize = 10.sp) }
+                TextButton(onClick = onViewHistory) {
+                    Text("View Details", color = AppPrimary)
+                }
+            }
+
+            // Large Steps Card
+            MainStatsCard(
+                steps = stats.totalSteps,
+                goalPercentage = if (targetSets > 0) (stats.totalSteps / 10000f * 100).toInt() else 0
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sub Stats Grid
+            Row(modifier = Modifier.fillMaxWidth()) {
+                SubStatCard(
+                    title = "Sets",
+                    value = "${stats.completedSets} / $targetSets",
+                    description = "Interval sets today",
+                    icon = Icons.Default.Edit,
+                    color = Color(0xFF4CAF50),
+                    modifier = Modifier.weight(1f)
                 )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { onNavigateToFeature("Settings") },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings", fontSize = 10.sp) }
+                Spacer(modifier = Modifier.width(16.dp))
+                SubStatCard(
+                    title = "Duration",
+                    value = "${stats.totalDuration}m",
+                    description = "Active movement",
+                    icon = Icons.Default.Timer,
+                    color = Color(0xFFFF9800),
+                    modifier = Modifier.weight(1f)
                 )
             }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Column(
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Route Preview Card
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                // Segmented Filter
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                    TimeFilter.entries.forEachIndexed { index, filter ->
-                        SegmentedButton(
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeFilter.entries.size),
-                            onClick = { viewModel.setFilter(filter) },
-                            selected = selectedFilter == filter,
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContainerColor = AppPrimary,
-                                activeContentColor = Color.White
-                            )
-                        ) {
-                            Text(filter.name.lowercase().replaceFirstChar { it.uppercase() })
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Today's Activity",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    TextButton(onClick = onViewHistory) {
-                        Text("View Details", color = AppPrimary)
-                    }
-                }
-
-                // Large Steps Card
-                MainStatsCard(
-                    steps = stats.totalSteps,
-                    goalPercentage = if (targetSets > 0) (stats.totalSteps / 10000f * 100).toInt() else 0 // Example goal 10k
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Sub Stats Grid
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    SubStatCard(
-                        title = "Sets",
-                        value = "${stats.completedSets} / $targetSets",
-                        description = "Interval sets today",
-                        icon = Icons.Default.Edit,
-                        color = Color(0xFF4CAF50),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    SubStatCard(
-                        title = "Duration",
-                        value = "${stats.totalDuration}m",
-                        description = "Active movement",
-                        icon = Icons.Default.Timer,
-                        color = Color(0xFFFF9800),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Route Preview Card
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
-                                )
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
                             )
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(20.dp)
-                    ) {
-                        Text("Morning Route", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("2.4 miles • 320 kcal", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
-                    }
+                        )
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(20.dp)
+                ) {
+                    Text("Morning Route", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("2.4 miles • 320 kcal", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
                 }
-                
-                Spacer(modifier = Modifier.height(100.dp))
             }
+            
+            Spacer(modifier = Modifier.height(100.dp))
+        }
 
-            // Floating Action Button - Center Bottom
-            Button(
-                onClick = { onStartWorkout(targetSets) },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
-                    .height(64.dp)
-                    .padding(horizontal = 32.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = AppPrimary),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("START WORKOUT", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                }
+        // Floating Action Button - Center Bottom
+        Button(
+            onClick = { onStartWorkout(targetSets) },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
+                .height(64.dp)
+                .padding(horizontal = 32.dp),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = AppPrimary),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("START WORKOUT", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
     }
@@ -266,7 +201,7 @@ fun MainStatsCard(steps: Int, goalPercentage: Int) {
                     modifier = Modifier.size(56.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.DirectionsRun, contentDescription = null, tint = AppPrimary, modifier = Modifier.size(32.dp))
+                        Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null, tint = AppPrimary, modifier = Modifier.size(32.dp))
                     }
                 }
             }

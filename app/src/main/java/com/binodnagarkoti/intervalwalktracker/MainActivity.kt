@@ -14,15 +14,29 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.binodnagarkoti.intervalwalktracker.service.WorkoutService
 import com.binodnagarkoti.intervalwalktracker.ui.navigation.AppNavigation
+import com.binodnagarkoti.intervalwalktracker.ui.navigation.Screen
+import com.binodnagarkoti.intervalwalktracker.ui.theme.IntervalWalkTrackerTheme
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
+import com.binodnagarkoti.intervalwalktracker.viewmodel.SettingsViewModel
 import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -75,20 +89,96 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
 
         setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val navController = rememberNavController()
-                    val dashboardViewModel: DashboardViewModel = hiltViewModel()
-                    val workoutViewModel: WorkoutViewModel = hiltViewModel()
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val isDarkTheme by settingsViewModel.isDarkTheme.collectAsState()
 
-                    AppNavigation(
-                        navController = navController,
-                        dashboardViewModel = dashboardViewModel,
-                        workoutViewModel = workoutViewModel
-                    )
+            IntervalWalkTrackerTheme(darkTheme = isDarkTheme) {
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                val showBottomBar = when (currentDestination?.route) {
+                    Screen.Dashboard.route, 
+                    Screen.History.route, 
+                    "coming_soon/Training Plans", 
+                    Screen.Settings.route -> true
+                    else -> false
+                }
+
+                Scaffold(
+                    bottomBar = {
+                        if (showBottomBar) {
+                            NavigationBar(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 8.dp
+                            ) {
+                                NavigationBarItem(
+                                    selected = currentDestination?.hierarchy?.any { it.route == Screen.Dashboard.route } == true,
+                                    onClick = {
+                                        navController.navigate(Screen.Dashboard.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                                    label = { Text("Home", fontSize = 10.sp) }
+                                )
+                                NavigationBarItem(
+                                    selected = currentDestination?.hierarchy?.any { it.route == Screen.History.route } == true,
+                                    onClick = {
+                                        navController.navigate(Screen.History.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                                    label = { Text("History", fontSize = 10.sp) }
+                                )
+                                NavigationBarItem(
+                                    selected = currentDestination?.route == "coming_soon/Training Plans",
+                                    onClick = {
+                                        navController.navigate(Screen.ComingSoon.createRoute("Training Plans")) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(Icons.AutoMirrored.Filled.EventNote, contentDescription = "Plans") },
+                                    label = { Text("Plans", fontSize = 10.sp) }
+                                )
+                                NavigationBarItem(
+                                    selected = currentDestination?.hierarchy?.any { it.route == Screen.Settings.route } == true,
+                                    onClick = {
+                                        navController.navigate(Screen.Settings.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                                    label = { Text("Settings", fontSize = 10.sp) }
+                                )
+                            }
+                        }
+                    }
+                ) { innerPadding ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        val dashboardViewModel: DashboardViewModel = hiltViewModel()
+                        val workoutViewModel: WorkoutViewModel = hiltViewModel()
+
+                        AppNavigation(
+                            navController = navController,
+                            dashboardViewModel = dashboardViewModel,
+                            workoutViewModel = workoutViewModel,
+                            settingsViewModel = settingsViewModel
+                        )
+                    }
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.binodnagarkoti.intervalwalktracker.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,9 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.ui.components.AppPrimary
-import com.binodnagarkoti.intervalwalktracker.ui.components.BackgroundDark
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
 import com.binodnagarkoti.intervalwalktracker.viewmodel.TimeFilter
 import java.text.SimpleDateFormat
@@ -34,7 +32,8 @@ import java.util.*
 @Composable
 fun HistoryScreen(
     viewModel: DashboardViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onViewDetail: (Int) -> Unit
 ) {
     val sessions by viewModel.filteredSessions.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
@@ -67,7 +66,6 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Tabs replacement using Segmented Button for consistency with design
             ScrollableTabRow(
                 selectedTabIndex = TimeFilter.entries.indexOf(selectedFilter),
                 containerColor = MaterialTheme.colorScheme.background,
@@ -113,7 +111,7 @@ fun HistoryScreen(
                         )
                     }
                     items(sessions) { session ->
-                        HistorySessionCard(session)
+                        HistorySessionCard(session, onClick = { onViewDetail(session.id) })
                     }
                 }
             }
@@ -122,14 +120,16 @@ fun HistoryScreen(
 }
 
 @Composable
-fun HistorySessionCard(session: WalkSession) {
+fun HistorySessionCard(session: WalkSession, onClick: () -> Unit) {
     val sdfDate = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault())
     val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
     val dateString = sdfDate.format(Date(session.date))
     val timeString = sdfTime.format(Date(session.date))
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -137,7 +137,6 @@ fun HistorySessionCard(session: WalkSession) {
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column {
-            // Map Placeholder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +182,9 @@ fun HistorySessionCard(session: WalkSession) {
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         )
                     }
-                    Icon(Icons.Default.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    IconButton(onClick = onClick) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "View Details", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

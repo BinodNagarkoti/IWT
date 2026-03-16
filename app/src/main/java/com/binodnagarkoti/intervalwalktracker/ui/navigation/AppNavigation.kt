@@ -1,11 +1,15 @@
 package com.binodnagarkoti.intervalwalktracker.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.ui.screens.*
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
+import com.binodnagarkoti.intervalwalktracker.viewmodel.SettingsViewModel
 import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModel
 
 sealed class Screen(val route: String) {
@@ -15,6 +19,10 @@ sealed class Screen(val route: String) {
     }
     object Summary : Screen("summary")
     object History : Screen("history")
+    object HistoryDetail : Screen("history_detail/{sessionId}") {
+        fun createRoute(sessionId: Int) = "history_detail/$sessionId"
+    }
+    object Settings : Screen("settings")
     object ComingSoon : Screen("coming_soon/{featureName}") {
         fun createRoute(featureName: String) = "coming_soon/$featureName"
     }
@@ -24,7 +32,8 @@ sealed class Screen(val route: String) {
 fun AppNavigation(
     navController: NavHostController,
     dashboardViewModel: DashboardViewModel,
-    workoutViewModel: WorkoutViewModel
+    workoutViewModel: WorkoutViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     NavHost(navController = navController, startDestination = Screen.Dashboard.route) {
         composable(Screen.Dashboard.route) {
@@ -37,7 +46,11 @@ fun AppNavigation(
                     navController.navigate(Screen.History.route)
                 },
                 onNavigateToFeature = { feature ->
-                    navController.navigate(Screen.ComingSoon.createRoute(feature))
+                    if (feature == "Settings") {
+                        navController.navigate(Screen.Settings.route)
+                    } else {
+                        navController.navigate(Screen.ComingSoon.createRoute(feature))
+                    }
                 }
             )
         }
@@ -71,7 +84,29 @@ fun AppNavigation(
                 viewModel = dashboardViewModel,
                 onBack = {
                     navController.popBackStack()
+                },
+                onViewDetail = { sessionId: Int ->
+                    navController.navigate(Screen.HistoryDetail.createRoute(sessionId))
                 }
+            )
+        }
+        composable(Screen.HistoryDetail.route) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull() ?: -1
+            val sessions by dashboardViewModel.allSessions.collectAsState(initial = emptyList())
+            val session = sessions.find { it.id == sessionId }
+            
+            if (session != null) {
+                HistoryDetailScreen(
+                    session = session,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                viewModel = dashboardViewModel,
+                settingsViewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.ComingSoon.route) { backStackEntry ->

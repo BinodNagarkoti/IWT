@@ -15,10 +15,11 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                // Using inMemoryDatabaseBuilder as per PRD requirement 9 & 10
-                val instance = Room.inMemoryDatabaseBuilder(
+                // Changed from inMemoryDatabaseBuilder to databaseBuilder for permanent storage
+                val instance = Room.databaseBuilder(
                     context.applicationContext,
-                    AppDatabase::class.java
+                    AppDatabase::class.java,
+                    "interval_walk_tracker_db"
                 ).build()
                 INSTANCE = instance
                 instance
