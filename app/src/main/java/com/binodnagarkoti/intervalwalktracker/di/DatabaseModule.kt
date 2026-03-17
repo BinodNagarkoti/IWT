@@ -1,6 +1,7 @@
 package com.binodnagarkoti.intervalwalktracker.di
 
 import android.content.Context
+import androidx.room.Room
 import com.binodnagarkoti.intervalwalktracker.data.database.AppDatabase
 import com.binodnagarkoti.intervalwalktracker.data.database.WalkSessionDao
 import dagger.Module
@@ -17,10 +18,16 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getDatabase(context)
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "interval_walk_tracker_db"
+        ).fallbackToDestructiveMigration()
+         .build()
     }
 
     @Provides
+    @Singleton
     fun provideWalkSessionDao(database: AppDatabase): WalkSessionDao {
         return database.walkSessionDao()
     }

@@ -15,6 +15,10 @@ class SessionRepository @Inject constructor(
 
     val allSessions: Flow<List<WalkSession>> = walkSessionDao.getAllSessions()
 
+    suspend fun getAllSessionsList(): List<WalkSession> {
+        return walkSessionDao.getAllSessionsList()
+    }
+
     fun getTodaySteps(): Flow<Int?> {
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -33,11 +37,19 @@ class SessionRepository @Inject constructor(
         walkSessionDao.insertSession(session)
     }
 
+    suspend fun insertSessions(sessions: List<WalkSession>) {
+        walkSessionDao.insertSessions(sessions)
+    }
+
     suspend fun deleteSession(session: WalkSession) {
         walkSessionDao.deleteSession(session)
     }
 
     suspend fun insertStepLog(log: StepLog) {
         walkSessionDao.insertStepLog(log)
+    }
+
+    suspend fun clearAllData() {
+        walkSessionDao.deleteAllSessions()
     }
 }

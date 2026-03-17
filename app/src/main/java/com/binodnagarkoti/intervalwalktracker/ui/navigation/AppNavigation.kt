@@ -14,9 +14,7 @@ import com.binodnagarkoti.intervalwalktracker.viewmodel.WorkoutViewModel
 
 sealed class Screen(val route: String) {
     object Dashboard : Screen("dashboard")
-    object Workout : Screen("workout/{sets}") {
-        fun createRoute(sets: Int) = "workout/$sets"
-    }
+    object Workout : Screen("workout")
     object Summary : Screen("summary")
     object History : Screen("history")
     object HistoryDetail : Screen("history_detail/{sessionId}") {
@@ -39,8 +37,8 @@ fun AppNavigation(
         composable(Screen.Dashboard.route) {
             DashboardScreen(
                 viewModel = dashboardViewModel,
-                onStartWorkout = { sets ->
-                    navController.navigate(Screen.Workout.createRoute(sets))
+                onStartWorkout = {
+                    navController.navigate(Screen.Workout.route)
                 },
                 onViewHistory = {
                     navController.navigate(Screen.History.route)
@@ -54,11 +52,21 @@ fun AppNavigation(
                 }
             )
         }
-        composable(Screen.Workout.route) { backStackEntry ->
-            val sets = backStackEntry.arguments?.getString("sets")?.toIntOrNull() ?: 5
+        composable(Screen.Workout.route) {
+            val totalSets by dashboardViewModel.targetSets.collectAsState()
+            val fastVal by dashboardViewModel.fastIntervalValue.collectAsState()
+            val fastUnit by dashboardViewModel.fastIntervalUnit.collectAsState()
+            val slowVal by dashboardViewModel.slowIntervalValue.collectAsState()
+            val slowUnit by dashboardViewModel.slowIntervalUnit.collectAsState()
+
+            val fastSeconds = if (fastUnit == "minutes") fastVal * 60 else fastVal
+            val slowSeconds = if (slowUnit == "minutes") slowVal * 60 else slowVal
+
             WorkoutScreen(
                 viewModel = workoutViewModel,
-                sets = sets,
+                sets = totalSets,
+                fastSeconds = fastSeconds,
+                slowSeconds = slowSeconds,
                 onBack = {
                     navController.popBackStack()
                 },

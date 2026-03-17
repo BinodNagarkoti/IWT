@@ -2,6 +2,9 @@ package com.binodnagarkoti.intervalwalktracker.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,15 +40,46 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val appVersion = "1.1.1"
+    val appVersion = "1.1.4"
     val targetSets by viewModel.targetSets.collectAsState()
+    
+    val fastVal by viewModel.fastIntervalValue.collectAsState()
+    val fastUnit by viewModel.fastIntervalUnit.collectAsState()
+    val slowVal by viewModel.slowIntervalValue.collectAsState()
+    val slowUnit by viewModel.slowIntervalUnit.collectAsState()
+    
     val isDarkTheme by settingsViewModel.isDarkTheme.collectAsState()
     val isAudioFeedbackEnabled by settingsViewModel.isAudioFeedbackEnabled.collectAsState()
     val isVibrationEnabled by settingsViewModel.isVibrationEnabled.collectAsState()
     val unitSystem by settingsViewModel.unitSystem.collectAsState()
+    val exportStatus by settingsViewModel.exportStatus.collectAsState()
     
     var showVersionDialog by remember { mutableStateOf(false) }
     var showUnitDialog by remember { mutableStateOf(false) }
+
+    // CSV Export Launcher
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+        onResult = { uri ->
+            uri?.let { settingsViewModel.exportDatabaseToCsv(it) }
+        }
+    )
+
+    // CSV Import Launcher - Improved with OpenDocument for better file selection
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            uri?.let { settingsViewModel.importCsvToDatabase(it) }
+        }
+    )
+
+    // Handle Export/Import Status Toasts
+    LaunchedEffect(exportStatus) {
+        exportStatus?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            settingsViewModel.clearStatus()
+        }
+    }
 
     if (showVersionDialog) {
         AlertDialog(
@@ -54,18 +88,9 @@ fun SettingsScreen(
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text("New Features:", fontWeight = FontWeight.Bold, color = AppPrimary)
-                    BulletPoint("Unit System: Switch between Metric (km) and Imperial (miles).")
-                    BulletPoint("Edge-to-Edge: Modernized UI with full screen support.")
-                    BulletPoint("Functional Settings: Toggles for Audio and Vibration are now active.")
-                    BulletPoint("Quick Settings: Added gear icon to dashboard for faster access.")
-                    BulletPoint("Stability: Enhanced Hilt dependency injection for better performance.")
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Text("Bugs Fixed:", fontWeight = FontWeight.Bold, color = AppPrimary)
-                    BulletPoint("Navigation: Resolved 'onNavigateToFeature' crash in AppNavigation.")
-                    BulletPoint("Deprecation Cleanup: Migrated to latest compilerOptions and UI APIs.")
-                    BulletPoint("Theme Engine: Fixed status bar color glitches in dark/light mode.")
+                    BulletPoint("Data Portability: Export your walk sessions to CSV and import them back.")
+                    BulletPoint("Improved File Selection: Better support for finding CSV files during import.")
+                    BulletPoint("Configurable Intervals: Set durations in seconds or minutes.")
                 }
             },
             confirmButton = {
@@ -153,62 +178,77 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Configuration for Sets
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ConfigCard(
+                title = "Total Sets",
+                value = "$targetSets Sets",
+                icon = Icons.Default.SettingsSuggest,
+                description = "Adjust the number of sets for your workout session."
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SettingsSuggest, contentDescription = null, tint = AppPrimary)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("Total Sets", fontWeight = FontWeight.Bold)
-                        }
-                        Text(
-                            text = "$targetSets Sets",
-                            fontWeight = FontWeight.Black,
-                            color = AppPrimary,
-                            fontSize = 18.sp
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Adjust the number of 6-minute intervals for your workout session.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Slider(
-                        value = targetSets.toFloat(),
-                        onValueChange = { viewModel.setTargetSets(it.toInt()) },
-                        valueRange = 1f..10f,
-                        steps = 8,
-                        colors = SliderDefaults.colors(
-                            thumbColor = AppPrimary,
-                            activeTrackColor = AppPrimary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    )
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("1 Set", style = MaterialTheme.typography.labelSmall)
-                        Text("10 Sets", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
+                Slider(
+                    value = targetSets.toFloat(),
+                    onValueChange = { viewModel.setTargetSets(it.toInt()) },
+                    valueRange = 1f..10f,
+                    steps = 8,
+                    colors = SliderDefaults.colors(thumbColor = AppPrimary, activeTrackColor = AppPrimary)
+                )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Fast Interval Config
+            IntervalConfigCard(
+                title = "Fast Walk Duration",
+                value = fastVal,
+                unit = fastUnit,
+                onValueChange = { viewModel.setFastInterval(it, fastUnit) },
+                onUnitChange = { viewModel.setFastInterval(fastVal, it) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Slow Interval Config
+            IntervalConfigCard(
+                title = "Slow Walk Duration",
+                value = slowVal,
+                unit = slowUnit,
+                onValueChange = { viewModel.setSlowInterval(it, slowUnit) },
+                onUnitChange = { viewModel.setSlowInterval(slowVal, it) }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Data Management",
+                style = MaterialTheme.typography.labelLarge,
+                color = AppPrimary,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SettingsItem(
+                title = "Export to CSV",
+                subtitle = "Save workout history to a file",
+                icon = Icons.Default.FileDownload,
+                onClick = { exportLauncher.launch("walk_sessions_${System.currentTimeMillis()}.csv") }
+            )
+
+            SettingsItem(
+                title = "Import from CSV",
+                subtitle = "Restore workout history from a file",
+                icon = Icons.Default.FileUpload,
+                onClick = { 
+                    // Using a broader set of MIME types to ensure CSV files are selectable
+                    importLauncher.launch(arrayOf(
+                        "text/csv", 
+                        "text/comma-separated-values", 
+                        "application/csv", 
+                        "application/vnd.ms-excel",
+                        "text/plain",
+                        "*/*" 
+                    )) 
+                }
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -320,6 +360,95 @@ fun SettingsScreen(
             }
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun ConfigCard(
+    title: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, contentDescription = null, tint = AppPrimary)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(title, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    text = value,
+                    fontWeight = FontWeight.Black,
+                    color = AppPrimary,
+                    fontSize = 18.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            Spacer(modifier = Modifier.height(16.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+fun IntervalConfigCard(
+    title: String,
+    value: Int,
+    unit: String,
+    onValueChange: (Int) -> Unit,
+    onUnitChange: (String) -> Unit
+) {
+    ConfigCard(
+        title = title,
+        value = "$value $unit",
+        icon = Icons.Default.Timer,
+        description = "Set the duration for this interval type."
+    ) {
+        Column {
+            Slider(
+                value = value.toFloat(),
+                onValueChange = { onValueChange(it.toInt()) },
+                valueRange = if (unit == "seconds") 5f..60f else 1f..10f,
+                steps = if (unit == "seconds") 10 else 8,
+                colors = SliderDefaults.colors(thumbColor = AppPrimary, activeTrackColor = AppPrimary)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text("Unit: ", style = MaterialTheme.typography.labelMedium)
+                AssistChip(
+                    onClick = { onUnitChange("seconds") },
+                    label = { Text("Seconds") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (unit == "seconds") AppPrimary.copy(alpha = 0.2f) else Color.Transparent
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                AssistChip(
+                    onClick = { onUnitChange("minutes") },
+                    label = { Text("Minutes") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (unit == "minutes") AppPrimary.copy(alpha = 0.2f) else Color.Transparent
+                    )
+                )
+            }
         }
     }
 }

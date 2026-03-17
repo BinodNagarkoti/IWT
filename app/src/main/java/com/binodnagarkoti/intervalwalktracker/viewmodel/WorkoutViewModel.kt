@@ -35,6 +35,13 @@ class WorkoutViewModel @Inject constructor(
     private val _totalSets = MutableStateFlow(5)
     val totalSets: StateFlow<Int> = _totalSets.asStateFlow()
 
+    // Configurable intervals
+    private val _fastInterval = MutableStateFlow(180) // seconds
+    val fastInterval: StateFlow<Int> = _fastInterval.asStateFlow()
+
+    private val _slowInterval = MutableStateFlow(180) // seconds
+    val slowInterval: StateFlow<Int> = _slowInterval.asStateFlow()
+
     private val _alertMessage = MutableStateFlow<String?>(null)
     val alertMessage: StateFlow<String?> = _alertMessage.asStateFlow()
 
@@ -79,9 +86,13 @@ class WorkoutViewModel @Inject constructor(
         _summarySlowMinutes.value = timerManager.totalSlowSeconds.value / 60
     }
 
-    fun startWorkout(sets: Int) {
+    fun setWorkoutConfig(sets: Int, fast: Int, slow: Int) {
         _totalSets.value = sets
-        
+        _fastInterval.value = fast
+        _slowInterval.value = slow
+    }
+
+    fun startWorkout() {
         // If not already running, reset and start
         if (timerState.value == TimerState.IDLE || timerState.value == TimerState.COMPLETED) {
             timerManager.reset()
@@ -89,7 +100,9 @@ class WorkoutViewModel @Inject constructor(
 
             val intent = Intent(context, WorkoutService::class.java).apply {
                 action = "START"
-                putExtra("SETS", sets)
+                putExtra("SETS", _totalSets.value)
+                putExtra("FAST_SECONDS", _fastInterval.value)
+                putExtra("SLOW_SECONDS", _slowInterval.value)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

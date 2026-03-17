@@ -7,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.*
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.binodnagarkoti.intervalwalktracker.MainActivity
 import com.binodnagarkoti.intervalwalktracker.audio.AudioCoachManager
@@ -35,11 +36,14 @@ class WorkoutService : Service() {
     @Inject lateinit var stepSensorManager: StepSensorManager
     @Inject lateinit var audioCoachManager: AudioCoachManager
     @Inject lateinit var repository: SessionRepository
-    private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+    private var toneGenerator: ToneGenerator? = null
 
     private val CHANNEL_ID = "workout_channel"
     private val NOTIFICATION_ID = 1
     private var totalSets = 5
+    private var fastSeconds = 180
+    private var slowSeconds = 180
+    private var wakeLock: PowerManager.WakeLock? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): WorkoutService = this@WorkoutService
@@ -47,18 +51,38 @@ class WorkoutService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("WorkoutService", "Service onCreate")
+        toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
         createNotificationChannel()
         observeTimerState()
+        acquireWakeLock()
+    }
+
+    private fun acquireWakeLock() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "IntervalWalkTracker:WorkoutWakeLock")
+        wakeLock?.acquire(10 * 60 * 1000L /*10 minutes fallback*/)
+        Log.d("WorkoutService", "WakeLock acquired")
+    }
+
+    private fun releaseWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            Log.d("WorkoutService", "WakeLock released")
+        }
     }
 
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
+        Log.d("WorkoutService", "onStartCommand action: $action")
         when (action) {
             "START" -> {
                 totalSets = intent.getIntExtra("SETS", 5)
-                startWorkout(totalSets)
+                fastSeconds = intent.getIntExtra("FAST_SECONDS", 180)
+                slowSeconds = intent.getIntExtra("SLOW_SECONDS", 180)
+                startWorkout(totalSets, fastSeconds, slowSeconds)
             }
             "STOP" -> {
                 saveAndStopWorkout()
@@ -67,10 +91,15 @@ class WorkoutService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startWorkout(sets: Int) {
-        timerManager.startTimer(sets)
+    private fun startWorkout(sets: Int, fast: Int, slow: Int) {
+        timerManager.startTimer(sets, fast, slow)
         stepSensorManager.startTracking()
         
+        // Ensure WakeLock is held for the duration
+        if (wakeLock?.isHeld == false) {
+            wakeLock?.acquire((sets * (fast + slow) * 1000L) + 60000L)
+        }
+
         val notification = createNotification("Workout Started", "Preparing...")
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -97,7 +126,7 @@ class WorkoutService : Service() {
     private fun handleStateChange(state: TimerState, time: Int, set: Int) {
         when (state) {
             TimerState.FAST -> {
-                if (time == 180) {
+                if (time == fastSeconds) {
                     vibrateAndBeep()
                     if (set == 1) {
                         audioCoachManager.speak("Workout started. Begin fast walking.")
@@ -110,7 +139,7 @@ class WorkoutService : Service() {
                 updateNotification(state, time, set)
             }
             TimerState.SLOW -> {
-                if (time == 180) {
+                if (time == slowSeconds) {
                     vibrateAndBeep()
                     audioCoachManager.speak("Switch to slow walking.")
                 }
@@ -130,7 +159,11 @@ class WorkoutService : Service() {
 
     private fun vibrateAndBeep() {
         vibrate()
-        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP)
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP)
+        } catch (e: Exception) {
+            Log.e("WorkoutService", "Error playing beep: ${e.message}")
+        }
     }
 
     private fun vibrate() {
@@ -155,10 +188,10 @@ class WorkoutService : Service() {
             val currentSet = timerManager.currentSet.value
             val currentState = timerManager.timerState.value
             val steps = stepSensorManager.steps.value
-            val fastSeconds = timerManager.totalFastSeconds.value
-            val slowSeconds = timerManager.totalSlowSeconds.value
+            val fastSecondsTotal = timerManager.totalFastSeconds.value
+            val slowSecondsTotal = timerManager.totalSlowSeconds.value
             
-            if (fastSeconds > 0 || slowSeconds > 0 || steps > 0) {
+            if (fastSecondsTotal > 0 || slowSecondsTotal > 0 || steps > 0) {
                 val completedSets = if (currentState == TimerState.COMPLETED) {
                     totalSets
                 } else {
@@ -167,12 +200,12 @@ class WorkoutService : Service() {
 
                 val session = WalkSession(
                     date = System.currentTimeMillis(),
-                    durationMinutes = (fastSeconds + slowSeconds) / 60,
+                    durationMinutes = (fastSecondsTotal + slowSecondsTotal) / 60,
                     steps = steps,
                     totalSets = totalSets,
                     completedSets = completedSets,
-                    fastMinutes = fastSeconds / 60,
-                    slowMinutes = slowSeconds / 60
+                    fastMinutes = fastSecondsTotal / 60,
+                    slowMinutes = slowSecondsTotal / 60
                 )
                 repository.insertSession(session)
                 repository.insertStepLog(StepLog(timestamp = System.currentTimeMillis(), steps = steps))
@@ -185,6 +218,7 @@ class WorkoutService : Service() {
     private fun stopWorkout() {
         timerManager.stopTimer()
         stepSensorManager.stopTracking()
+        releaseWakeLock()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -228,9 +262,12 @@ class WorkoutService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        Log.d("WorkoutService", "Service onDestroy")
         serviceScope.cancel()
         audioCoachManager.shutdown()
-        toneGenerator.release()
+        toneGenerator?.release()
+        toneGenerator = null
+        releaseWakeLock()
+        super.onDestroy()
     }
 }

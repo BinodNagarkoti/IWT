@@ -1,9 +1,6 @@
 package com.binodnagarkoti.intervalwalktracker.data.database
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.Query
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -11,11 +8,17 @@ interface WalkSessionDao {
     @Query("SELECT * FROM walk_sessions ORDER BY date DESC")
     fun getAllSessions(): Flow<List<WalkSession>>
 
+    @Query("SELECT * FROM walk_sessions ORDER BY date DESC")
+    suspend fun getAllSessionsList(): List<WalkSession>
+
     @Query("SELECT * FROM walk_sessions WHERE date >= :startDate ORDER BY date DESC")
     fun getSessionsFromDate(startDate: Long): Flow<List<WalkSession>>
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WalkSession)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSessions(sessions: List<WalkSession>)
 
     @Delete
     suspend fun deleteSession(session: WalkSession)
@@ -28,4 +31,7 @@ interface WalkSessionDao {
 
     @Insert
     suspend fun insertStepLog(log: StepLog)
+
+    @Query("DELETE FROM walk_sessions")
+    suspend fun deleteAllSessions()
 }

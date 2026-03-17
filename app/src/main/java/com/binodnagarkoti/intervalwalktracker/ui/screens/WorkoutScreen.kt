@@ -28,6 +28,8 @@ import java.util.Locale
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
     sets: Int,
+    fastSeconds: Int = 180,
+    slowSeconds: Int = 180,
     onBack: () -> Unit,
     onFinish: () -> Unit
 ) {
@@ -38,7 +40,8 @@ fun WorkoutScreen(
     val isSensorAvailable by viewModel.isSensorAvailable.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.startWorkout(sets)
+        viewModel.setWorkoutConfig(sets, fastSeconds, slowSeconds)
+        viewModel.startWorkout()
     }
 
     LaunchedEffect(timerState) {
@@ -87,9 +90,10 @@ fun WorkoutScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Circular Timer
+            val maxSeconds = if (timerState == TimerState.SLOW) slowSeconds else fastSeconds
             CircularTimer(
                 seconds = timeLeft,
-                totalSeconds = 180, // 3 minutes
+                totalSeconds = maxSeconds,
                 isFast = timerState == TimerState.FAST || timerState == TimerState.IDLE
             )
 
@@ -160,7 +164,7 @@ fun MapPlaceholder() {
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, BackgroundDark.copy(alpha = 0.8f))
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                     )
                 )
         )

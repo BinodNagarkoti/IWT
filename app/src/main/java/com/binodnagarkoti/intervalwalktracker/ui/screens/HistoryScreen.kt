@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,10 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.binodnagarkoti.intervalwalktracker.data.database.WalkSession
 import com.binodnagarkoti.intervalwalktracker.ui.components.AppPrimary
+import com.binodnagarkoti.intervalwalktracker.viewmodel.AggregatedSession
 import com.binodnagarkoti.intervalwalktracker.viewmodel.DashboardViewModel
 import com.binodnagarkoti.intervalwalktracker.viewmodel.TimeFilter
+import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,8 +37,105 @@ fun HistoryScreen(
     onBack: () -> Unit,
     onViewDetail: (Int) -> Unit
 ) {
-    val sessions by viewModel.filteredSessions.collectAsState()
+    val sessions by viewModel.aggregatedSessions.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val selectedYear by viewModel.selectedYear.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
+    val availableYears by viewModel.availableYears.collectAsState()
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    "Filter Sessions",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Year Selection
+                Text("Year", style = MaterialTheme.typography.labelLarge, color = AppPrimary)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedYear == null,
+                        onClick = { viewModel.setYearFilter(null) },
+                        label = { Text("All") }
+                    )
+                    availableYears.forEach { year ->
+                        FilterChip(
+                            selected = selectedYear == year,
+                            onClick = { viewModel.setYearFilter(year) },
+                            label = { Text(year.toString()) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Month Selection
+                Text("Month", style = MaterialTheme.typography.labelLarge, color = AppPrimary)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    val months = DateFormatSymbols().months
+                    
+                    OutlinedCard(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(if (selectedMonth == null) "All Months" else months[selectedMonth!!])
+                            Icon(Icons.Default.MoreVert, contentDescription = null)
+                        }
+                    }
+
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("All Months") },
+                            onClick = { 
+                                viewModel.setMonthFilter(null)
+                                expanded = false 
+                            }
+                        )
+                        months.filter { it.isNotEmpty() }.forEachIndexed { index, name ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = { 
+                                    viewModel.setMonthFilter(index)
+                                    expanded = false 
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = { showFilterSheet = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Apply Filters")
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -53,8 +152,14 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Calendar */ }) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = "Calendar")
+                    if (selectedFilter == TimeFilter.DAILY) {
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = "Filter",
+                                tint = if (selectedYear != null || selectedMonth != null) AppPrimary else LocalContentColor.current
+                            )
+                        }
                     }
                 }
             )
@@ -91,7 +196,17 @@ fun HistoryScreen(
 
             if (sessions.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No sessions found for this period", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No sessions found", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (selectedYear != null || selectedMonth != null) {
+                            TextButton(onClick = { 
+                                viewModel.setYearFilter(null)
+                                viewModel.setMonthFilter(null)
+                            }) {
+                                Text("Clear filters", color = AppPrimary)
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -100,18 +215,45 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        Text(
-                            text = "RECENT SESSIONS",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            ),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (selectedFilter == TimeFilter.DAILY) "DETAILED SESSIONS" else "AGGREGATED SESSIONS",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            )
+                            if (selectedFilter == TimeFilter.DAILY && (selectedYear != null || selectedMonth != null)) {
+                                Surface(
+                                    color = AppPrimary.copy(alpha = 0.1f),
+                                    shape = CircleShape
+                                ) {
+                                    val monthName = selectedMonth?.let { DateFormatSymbols().months[it] } ?: ""
+                                    val filterText = listOfNotNull(monthName, selectedYear?.toString()).joinToString(" ")
+                                    Text(
+                                        text = filterText,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(color = AppPrimary, fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                        }
                     }
                     items(sessions) { session ->
-                        HistorySessionCard(session, onClick = { onViewDetail(session.id) })
+                        HistorySessionCard(
+                            session = session, 
+                            selectedFilter = selectedFilter,
+                            onClick = { 
+                                if (!session.isAggregated) {
+                                    onViewDetail(session.id)
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -120,11 +262,13 @@ fun HistoryScreen(
 }
 
 @Composable
-fun HistorySessionCard(session: WalkSession, onClick: () -> Unit) {
-    val sdfDate = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault())
-    val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-    val dateString = sdfDate.format(Date(session.date))
-    val timeString = sdfTime.format(Date(session.date))
+fun HistorySessionCard(
+    session: AggregatedSession, 
+    selectedFilter: TimeFilter,
+    onClick: () -> Unit
+) {
+    val sdfDateBadge = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val dateBadgeString = sdfDateBadge.format(Date(session.date))
 
     Card(
         modifier = Modifier
@@ -140,7 +284,7 @@ fun HistorySessionCard(session: WalkSession, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(100.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Box(
@@ -152,20 +296,40 @@ fun HistorySessionCard(session: WalkSession, onClick: () -> Unit) {
                             )
                         )
                 )
-                Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                    color = AppPrimary,
-                    shape = CircleShape
-                ) {
-                    Text(
-                        text = "INTERVAL",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 8.sp
+                
+                // Date Badge (Show on Daily tab as requested, or Aggregate Badge on other tabs)
+                if (selectedFilter == TimeFilter.DAILY) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = CircleShape
+                    ) {
+                        Text(
+                            text = dateBadgeString,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 9.sp
+                            )
                         )
-                    )
+                    }
+                } else if (session.isAggregated) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        color = AppPrimary,
+                        shape = CircleShape
+                    ) {
+                        Text(
+                            text = "${session.sessionCount} SESSIONS",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                        )
+                    }
                 }
             }
 
@@ -176,14 +340,19 @@ fun HistorySessionCard(session: WalkSession, onClick: () -> Unit) {
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
-                        Text(text = dateString, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                         Text(
-                            text = "Walk • $timeString",
+                            text = if (selectedFilter == TimeFilter.DAILY) "Session at ${session.label}" else session.label, 
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = if (selectedFilter == TimeFilter.DAILY) "Individual Walk" else "Aggregated Summary",
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         )
                     }
-                    IconButton(onClick = onClick) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "View Details", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    if (!session.isAggregated) {
+                        IconButton(onClick = onClick) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "View Details", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                        }
                     }
                 }
 
